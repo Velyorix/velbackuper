@@ -17,6 +17,13 @@ var validateCmd = &cobra.Command{
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	_, err := config.Load(false)
-	return err
+	v, err := config.Load(false)
+	if err != nil {
+		return err
+	}
+	cfg, err := config.Unmarshal(v)
+	if err != nil {
+		return err
+	}
+	return config.Validate(cfg)
 }
