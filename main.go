@@ -1,7 +1,11 @@
 package main
 
-import "os"
+import (
+	"os"
+
+	"VelBackuper/cmd"
+)
 
 func main() {
-	os.Exit(0)
+	os.Exit(cmd.Execute())
 }
