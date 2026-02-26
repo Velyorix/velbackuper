@@ -76,4 +76,18 @@ func TestIsExpired(t *testing.T) {
 			t.Error("with nil retention, backup should not be expired")
 		}
 	})
+
+	t.Run("backup exactly at cutoff not expired", func(t *testing.T) {
+		atCutoff := cutoff
+		if IsExpired(atCutoff, now, r) {
+			t.Error("backup at cutoff time should not be expired (retained)")
+		}
+	})
+
+	t.Run("backup just before cutoff expired", func(t *testing.T) {
+		justBefore := cutoff.Add(-time.Second)
+		if !IsExpired(justBefore, now, r) {
+			t.Error("backup just before cutoff should be expired")
+		}
+	})
 }
