@@ -13,6 +13,9 @@ func Validate(cfg *Config) error {
 	}
 	switch cfg.Mode {
 	case ModeArchive, ModeIncremental:
+		if cfg.S3 != nil {
+			cfg.S3.Prefix = NormalizePrefix(cfg.S3.Prefix)
+		}
 		return nil
 	case "":
 		return fmt.Errorf("%w (mode is required)", ErrInvalidMode)
