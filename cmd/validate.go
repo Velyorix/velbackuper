@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+
+	"VelBackuper/internal/config"
 )
 
 func init() {
@@ -15,5 +17,6 @@ var validateCmd = &cobra.Command{
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	return nil
+	_, err := config.Load(false)
+	return err
 }
