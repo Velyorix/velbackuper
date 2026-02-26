@@ -31,8 +31,51 @@ type TLSConfig struct {
 }
 
 type JobConfig struct {
-	Name    string `mapstructure:"name"`
-	Enabled bool   `mapstructure:"enabled"`
+	Name      string           `mapstructure:"name"`
+	Enabled   bool             `mapstructure:"enabled"`
+	MySQL     *MySQLJobConfig  `mapstructure:"mysql"`
+	Presets   *PresetsConfig   `mapstructure:"presets"`
+	Paths     *PathsConfig     `mapstructure:"paths"`
+	Schedule  *ScheduleConfig  `mapstructure:"schedule"`
+	Retention *RetentionConfig `mapstructure:"retention"`
+}
+
+type MySQLJobConfig struct {
+	Enabled       bool              `mapstructure:"enabled"`
+	DumpAll       bool              `mapstructure:"dump_all"`
+	ExcludeSystem bool              `mapstructure:"exclude_system"`
+	OneFilePerDB  bool              `mapstructure:"one_file_per_db"`
+	Options       *MySQLDumpOptions `mapstructure:"options"`
+}
+
+type MySQLDumpOptions struct {
+	SingleTransaction bool `mapstructure:"single_transaction"`
+	Routines          bool `mapstructure:"routines"`
+	Events            bool `mapstructure:"events"`
+}
+
+type PresetsConfig struct {
+	Nginx       bool `mapstructure:"nginx"`
+	Apache      bool `mapstructure:"apache"`
+	LetsEncrypt bool `mapstructure:"letsencrypt"`
+}
+
+type PathsConfig struct {
+	Include        []string `mapstructure:"include"`
+	Exclude        []string `mapstructure:"exclude"`
+	FollowSymlinks bool     `mapstructure:"follow_symlinks"`
+}
+
+type ScheduleConfig struct {
+	Period        string `mapstructure:"period"` // day | week | month
+	Times         int    `mapstructure:"times"`  // 1-5 per period
+	JitterMinutes int    `mapstructure:"jitter_minutes"`
+}
+
+type RetentionConfig struct {
+	Days   int `mapstructure:"days"`
+	Weeks  int `mapstructure:"weeks"`
+	Months int `mapstructure:"months"`
 }
 
 type NotificationsConfig struct {
@@ -40,7 +83,22 @@ type NotificationsConfig struct {
 }
 
 type DiscordConfig struct {
-	Enabled bool `mapstructure:"enabled"`
+	Enabled        bool             `mapstructure:"enabled"`
+	WebhookURL     string           `mapstructure:"webhook_url"`
+	Level          string           `mapstructure:"level"` // e.g. "all"
+	Events         []string         `mapstructure:"events"`
+	Mentions       *DiscordMentions `mapstructure:"mentions"`
+	TimeoutSeconds int              `mapstructure:"timeout_seconds"`
+	Retry          *DiscordRetry    `mapstructure:"retry"`
+}
+
+type DiscordMentions struct {
+	OnError string `mapstructure:"on_error"`
+}
+
+type DiscordRetry struct {
+	Attempts  int `mapstructure:"attempts"`
+	BackoffMs int `mapstructure:"backoff_ms"`
 }
 
 func Unmarshal(v *viper.Viper) (*Config, error) {
