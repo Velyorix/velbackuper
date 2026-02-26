@@ -3,14 +3,17 @@ package s3
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
@@ -130,6 +133,22 @@ func (c *Client) DeleteObject(ctx context.Context, key string) error {
 		Key:    aws.String(fullKey),
 	})
 	return err
+}
+
+func (c *Client) HeadObject(ctx context.Context, key string) (*time.Time, error) {
+	fullKey := c.Key(key)
+	out, err := c.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(fullKey),
+	})
+	if err != nil {
+		var re *awshttp.ResponseError
+		if errors.As(err, &re) && re.HTTPStatusCode() == 404 {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return out.LastModified, nil
 }
 
 func (c *Client) ListObjects(ctx context.Context, prefix string, maxKeys int32) ([]string, error) {
