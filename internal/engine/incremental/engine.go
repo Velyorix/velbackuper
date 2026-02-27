@@ -5,6 +5,7 @@ import (
 	"io"
 	"time"
 
+	"VelBackuper/internal/lock"
 	"VelBackuper/internal/s3"
 )
 
@@ -75,4 +76,23 @@ func Run(ctx context.Context, store Storage, job string, r io.Reader, opts RunOp
 	}
 
 	return timestamp, index, snapshot, nil
+}
+
+func RunWithS3Lock(ctx context.Context, client *s3.Client, job string, r io.Reader, opts RunOptions, lockTTL time.Duration) (backupID string, idx *Index, snap *Snapshot, err error) {
+	locker, err := lock.NewS3(lock.S3Options{
+		Client: client,
+		Name:   job,
+		TTL:    lockTTL,
+	})
+	if err != nil {
+		return "", nil, nil, err
+	}
+	if err := locker.Acquire(ctx); err != nil {
+		return "", nil, nil, err
+	}
+	defer func() {
+		_ = locker.Release(context.Background())
+	}()
+
+	return Run(ctx, client, job, r, opts)
 }
