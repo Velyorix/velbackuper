@@ -48,7 +48,7 @@ func ApplyRetention(ctx context.Context, client Storage, job string, retention *
 		deleted++
 	}
 
-	latestTs, latestKey, err := ReadLatest(ctx, client, job)
+	_, latestKey, err := ReadLatest(ctx, client, job)
 	if err != nil || latestKey == "" {
 		return deleted, nil
 	}
