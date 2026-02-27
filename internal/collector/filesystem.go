@@ -58,12 +58,12 @@ func (c *FilesystemCollector) walk(ctx context.Context, tw *tar.Writer, root, di
 		default:
 		}
 		full := filepath.Join(dir, e.Name())
-		rel, err := filepath.Rel(root, full)
+		absFull, err := filepath.Abs(full)
 		if err != nil {
 			return err
 		}
-		tarName := filepath.ToSlash(rel)
-		if strings.HasPrefix(tarName, "..") {
+		tarName := strings.TrimLeft(filepath.ToSlash(absFull), "/")
+		if tarName == "" || strings.HasPrefix(tarName, "..") {
 			continue
 		}
 		if c.excluded(full) {
