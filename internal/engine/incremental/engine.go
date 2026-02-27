@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"VelBackuper/internal/lock"
+	"VelBackuper/internal/notifier"
 	"VelBackuper/internal/s3"
 )
 
@@ -15,6 +16,8 @@ type RunOptions struct {
 	ChunkSize     int64
 	Concurrency   int
 	HashPrefixLen int
+	Notifier      notifier.Notifier
+	StrictNotify  bool
 }
 
 func Run(ctx context.Context, store Storage, job string, r io.Reader, opts RunOptions) (backupID string, idx *Index, snap *Snapshot, err error) {
@@ -94,5 +97,30 @@ func RunWithS3Lock(ctx context.Context, client *s3.Client, job string, r io.Read
 		_ = locker.Release(context.Background())
 	}()
 
-	return Run(ctx, client, job, r, opts)
+	if opts.Notifier != nil {
+		if nErr := opts.Notifier.NotifyStart(ctx, job, ""); nErr != nil && opts.StrictNotify {
+			return "", nil, nil, nErr
+		}
+	}
+
+	start := time.Now()
+	backupID, idx, snap, err = Run(ctx, client, job, r, opts)
+	duration := time.Since(start)
+
+	if opts.Notifier != nil {
+		if err != nil {
+			nErr := opts.Notifier.NotifyError(ctx, job, backupID, err)
+			if nErr != nil && opts.StrictNotify && backupID == "" {
+				return backupID, idx, snap, nErr
+			}
+			return backupID, idx, snap, err
+		}
+
+		nErr := opts.Notifier.NotifySuccess(ctx, job, backupID, duration, 0)
+		if nErr != nil && opts.StrictNotify {
+			return backupID, idx, snap, nErr
+		}
+	}
+
+	return backupID, idx, snap, err
 }
