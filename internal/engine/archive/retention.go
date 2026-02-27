@@ -12,7 +12,7 @@ import (
 
 const timestampLayout = "20060102150405"
 
-func ApplyRetention(ctx context.Context, client *s3.Client, job string, retention *config.RetentionConfig, now time.Time) (deleted int, err error) {
+func ApplyRetention(ctx context.Context, client Storage, job string, retention *config.RetentionConfig, now time.Time) (deleted int, err error) {
 	if retention == nil || config.RetainUntil(now, retention).IsZero() {
 		return 0, nil
 	}

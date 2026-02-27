@@ -32,7 +32,7 @@ func WriteManifest(ctx context.Context, client *s3.Client, m Manifest) error {
 	return client.PutObject(ctx, key, bytes.NewReader(body), int64(len(body)))
 }
 
-func WriteLatest(ctx context.Context, client *s3.Client, job, timestamp, archiveKey string) error {
+func WriteLatest(ctx context.Context, client Storage, job, timestamp, archiveKey string) error {
 	p := LatestPointer{Timestamp: timestamp, Key: archiveKey}
 	key := s3.LatestKey(job)
 	body, err := json.Marshal(p)
@@ -42,7 +42,7 @@ func WriteLatest(ctx context.Context, client *s3.Client, job, timestamp, archive
 	return client.PutObject(ctx, key, bytes.NewReader(body), int64(len(body)))
 }
 
-func ReadLatest(ctx context.Context, client *s3.Client, job string) (timestamp, archiveKey string, err error) {
+func ReadLatest(ctx context.Context, client Storage, job string) (timestamp, archiveKey string, err error) {
 	key := s3.LatestKey(job)
 	rc, err := client.GetObject(ctx, key)
 	if err != nil {
@@ -56,7 +56,7 @@ func ReadLatest(ctx context.Context, client *s3.Client, job string) (timestamp, 
 	return p.Timestamp, p.Key, nil
 }
 
-func ReadManifestByKey(ctx context.Context, client *s3.Client, manifestKey string) (*Manifest, error) {
+func ReadManifestByKey(ctx context.Context, client Storage, manifestKey string) (*Manifest, error) {
 	rc, err := client.GetObject(ctx, manifestKey)
 	if err != nil {
 		return nil, err
