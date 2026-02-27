@@ -2,6 +2,8 @@ package incremental
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"path"
 	"strings"
 	"time"
@@ -16,7 +18,17 @@ type GCResult struct {
 	DeletedObjects   int
 }
 
-func Prune(ctx context.Context, client *s3.Client, job string, retention *config.RetentionConfig, now time.Time, hashPrefixLen int) (GCResult, error) {
+// gcStorage is the subset of S3 client methods used by Prune.
+type gcStorage interface {
+	ListObjects(ctx context.Context, prefix string, maxKeys int32) ([]string, error)
+	DeleteObject(ctx context.Context, key string) error
+	GetObject(ctx context.Context, key string) (io.ReadCloser, error)
+}
+
+// Prune deletes expired snapshots and their indexes for a job according to retention,
+// then performs a mark-and-sweep GC over objects used by retained snapshots of this job.
+// Any client that satisfies gcStorage (including *s3.Client) can be used.
+func Prune(ctx context.Context, client gcStorage, job string, retention *config.RetentionConfig, now time.Time, hashPrefixLen int) (GCResult, error) {
 	var result GCResult
 
 	snapPrefix := s3.SnapshotsPrefixForJob(job)
@@ -34,7 +46,7 @@ func Prune(ctx context.Context, client *s3.Client, job string, retention *config
 		}
 		expired := config.IsExpired(ts, now, retention)
 
-		snap, err := ReadSnapshotByKey(ctx, client, snapKey)
+		snap, err := readSnapshotForGC(ctx, client, snapKey)
 		if err != nil {
 			return result, err
 		}
@@ -56,7 +68,7 @@ func Prune(ctx context.Context, client *s3.Client, job string, retention *config
 		if snap.IndexKey == "" {
 			continue
 		}
-		idx, err := ReadIndexByKey(ctx, client, snap.IndexKey)
+		idx, err := readIndexForGC(ctx, client, snap.IndexKey)
 		if err != nil {
 			return result, err
 		}
@@ -114,4 +126,30 @@ func hashFromObjectKey(key string) string {
 		return ""
 	}
 	return parts[2]
+}
+
+func readSnapshotForGC(ctx context.Context, client gcStorage, key string) (*Snapshot, error) {
+	rc, err := client.GetObject(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	var s Snapshot
+	if err := json.NewDecoder(rc).Decode(&s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+func readIndexForGC(ctx context.Context, client gcStorage, key string) (*Index, error) {
+	rc, err := client.GetObject(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	var idx Index
+	if err := json.NewDecoder(rc).Decode(&idx); err != nil {
+		return nil, err
+	}
+	return &idx, nil
 }
