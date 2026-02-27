@@ -99,6 +99,20 @@ func (c *Client) Bucket() string {
 	return c.bucket
 }
 
+func (c *Client) relativeKey(full string) string {
+	if c.prefix == "" {
+		return full
+	}
+	prefixWithSlash := c.prefix + "/"
+	if strings.HasPrefix(full, prefixWithSlash) {
+		return full[len(prefixWithSlash):]
+	}
+	if full == c.prefix {
+		return ""
+	}
+	return full
+}
+
 func (c *Client) Prefix() string {
 	return c.prefix
 }
@@ -170,7 +184,7 @@ func (c *Client) ListObjects(ctx context.Context, prefix string, maxKeys int32) 
 		}
 		for _, obj := range page.Contents {
 			if obj.Key != nil {
-				keys = append(keys, *obj.Key)
+				keys = append(keys, c.relativeKey(*obj.Key))
 			}
 		}
 		if maxKeys > 0 && int32(len(keys)) >= maxKeys {

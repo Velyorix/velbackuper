@@ -55,3 +55,16 @@ func ReadLatest(ctx context.Context, client *s3.Client, job string) (timestamp, 
 	}
 	return p.Timestamp, p.Key, nil
 }
+
+func ReadManifestByKey(ctx context.Context, client *s3.Client, manifestKey string) (*Manifest, error) {
+	rc, err := client.GetObject(ctx, manifestKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	var m Manifest
+	if err := json.NewDecoder(rc).Decode(&m); err != nil {
+		return nil, fmt.Errorf("manifest decode: %w", err)
+	}
+	return &m, nil
+}
