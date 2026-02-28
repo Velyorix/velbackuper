@@ -38,13 +38,13 @@ func Generate(job config.JobConfig, schedule *config.ScheduleConfig, opts Genera
 
 	execStart := fmt.Sprintf("%s run --job %s", opts.Binary, job.Name)
 
-	service := buildService(job.Name, execStart, opts.Hardening)
+	service := buildService(job.Name, execStart, opts.ConfigPath, opts.Hardening)
 	timer := buildTimer(job.Name, schedule, opts.Hardening)
 
 	return &GeneratedUnits{Service: service, Timer: timer}, nil
 }
 
-func buildService(jobName, execStart string, hardening bool) string {
+func buildService(jobName, execStart, configPath string, hardening bool) string {
 	var b strings.Builder
 	safeName := sanitizeUnitName(jobName)
 
@@ -56,7 +56,7 @@ func buildService(jobName, execStart string, hardening bool) string {
 	b.WriteString("[Service]\n")
 	b.WriteString("Type=oneshot\n")
 	b.WriteString(fmt.Sprintf("ExecStart=%s\n", execStart))
-	b.WriteString("Environment=VELBACKUPER_CONFIG=" + opts.ConfigPath + "\n")
+	b.WriteString("Environment=VELBACKUPER_CONFIG=" + configPath + "\n")
 
 	if hardening {
 		b.WriteString("ProtectSystem=full\n")
