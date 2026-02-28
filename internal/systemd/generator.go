@@ -157,6 +157,11 @@ func buildOnCalendar(s *config.ScheduleConfig) []string {
 	}
 }
 
+func UnitFileNames(jobName string) (service, timer string) {
+	safe := sanitizeUnitName(jobName)
+	return "velbackuper-" + safe + ".service", "velbackuper-" + safe + ".timer"
+}
+
 func sanitizeUnitName(name string) string {
 	var b strings.Builder
 	for _, r := range name {
