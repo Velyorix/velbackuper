@@ -30,6 +30,7 @@ func TestMinIO_ArchiveUploadListRestorePrune(t *testing.T) {
 		SecretKey:          secretKey,
 		Bucket:             bucket,
 		Prefix:             prefix,
+		PathStyle:          true, // MinIO uses path-style
 		InsecureSkipVerify: true,
 	})
 	if err != nil {

@@ -15,13 +15,15 @@ type Config struct {
 }
 
 type S3Config struct {
-	Endpoint  string     `mapstructure:"endpoint" yaml:"endpoint"`
-	Region    string     `mapstructure:"region" yaml:"region"`
-	AccessKey string     `mapstructure:"access_key" yaml:"access_key"`
-	SecretKey string     `mapstructure:"secret_key" yaml:"secret_key"`
-	Bucket    string     `mapstructure:"bucket" yaml:"bucket"`
-	Prefix    string     `mapstructure:"prefix" yaml:"prefix"`
-	TLS       *TLSConfig `mapstructure:"tls" yaml:"tls,omitempty"`
+	Endpoint                string     `mapstructure:"endpoint" yaml:"endpoint"`
+	Region                  string     `mapstructure:"region" yaml:"region"`
+	AccessKey               string     `mapstructure:"access_key" yaml:"access_key"`
+	SecretKey               string     `mapstructure:"secret_key" yaml:"secret_key"`
+	Bucket                  string     `mapstructure:"bucket" yaml:"bucket"`
+	Prefix                  string     `mapstructure:"prefix" yaml:"prefix"`
+	PathStyle               *bool      `mapstructure:"path_style" yaml:"path_style,omitempty"`                               // true = path-style (MinIO), false = virtual-hosted; nil = true
+	DisableRequestChecksums *bool      `mapstructure:"disable_request_checksums" yaml:"disable_request_checksums,omitempty"` // true = compat Ceph/some S3 backends; nil = false
+	TLS                     *TLSConfig `mapstructure:"tls" yaml:"tls,omitempty"`
 }
 
 type TLSConfig struct {
@@ -79,6 +81,8 @@ type RetentionConfig struct {
 }
 
 type NotificationsConfig struct {
+	// Enabled turns all notifications on (true) or off (false). Omit or true = enabled.
+	Enabled *bool          `mapstructure:"enabled" yaml:"enabled,omitempty"`
 	Discord *DiscordConfig `mapstructure:"discord" yaml:"discord,omitempty"`
 }
 
@@ -99,6 +103,30 @@ type DiscordMentions struct {
 type DiscordRetry struct {
 	Attempts  int `mapstructure:"attempts" yaml:"attempts"`
 	BackoffMs int `mapstructure:"backoff_ms" yaml:"backoff_ms"`
+}
+
+// NotificationsEnabled returns whether notifications are enabled globally. Nil or true = enabled.
+func NotificationsEnabled(n *NotificationsConfig) bool {
+	if n == nil || n.Enabled == nil {
+		return true
+	}
+	return *n.Enabled
+}
+
+// S3PathStyle returns whether to use path-style addressing (bucket in path). Default true for MinIO; set false for virtual-hosted (e.g. AWS, some S3).
+func S3PathStyle(s3 *S3Config) bool {
+	if s3 == nil || s3.PathStyle == nil {
+		return true
+	}
+	return *s3.PathStyle
+}
+
+// S3DisableRequestChecksums returns whether to disable default request checksums (for S3-compatible backends that reject them). Default false.
+func S3DisableRequestChecksums(s3 *S3Config) bool {
+	if s3 == nil || s3.DisableRequestChecksums == nil {
+		return false
+	}
+	return *s3.DisableRequestChecksums
 }
 
 func Unmarshal(v *viper.Viper) (*Config, error) {

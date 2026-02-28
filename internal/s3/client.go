@@ -26,13 +26,15 @@ const (
 )
 
 type Options struct {
-	Endpoint           string
-	Region             string
-	AccessKey          string
-	SecretKey          string
-	Bucket             string
-	Prefix             string
-	InsecureSkipVerify bool
+	Endpoint                string
+	Region                  string
+	AccessKey               string
+	SecretKey               string
+	Bucket                  string
+	Prefix                  string
+	PathStyle               bool // true = path-style (MinIO), false = virtual-hosted (AWS, some S3)
+	DisableRequestChecksums bool // set true for S3-compatible backends that reject default CRC/SHA checksum headers (e.g. Ceph, some proxies)
+	InsecureSkipVerify      bool
 }
 
 type Client struct {
@@ -77,10 +79,14 @@ func New(ctx context.Context, opts Options) (*Client, error) {
 		}
 	}
 
-	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
-		o.UsePathStyle = true
+	s3Opts := func(o *s3.Options) {
+		o.UsePathStyle = opts.PathStyle
 		o.HTTPClient = httpClient
-	})
+		if opts.DisableRequestChecksums {
+			o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		}
+	}
+	client := s3.NewFromConfig(cfg, s3Opts)
 
 	return &Client{
 		client: client,

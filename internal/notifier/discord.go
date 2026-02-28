@@ -47,9 +47,18 @@ type discordPayload struct {
 	Embeds  []discordEmbed `json:"embeds,omitempty"`
 }
 
+const envDiscordWebhook = "VELBACKUPER_DISCORD_WEBHOOK_URL"
+
 func NewDiscordNotifier(cfg *config.DiscordConfig) (*DiscordNotifier, error) {
-	if cfg == nil || !cfg.Enabled || cfg.WebhookURL == "" {
+	if cfg == nil || !cfg.Enabled {
 		return nil, fmt.Errorf("discord notifier disabled or missing webhook_url")
+	}
+	webhookURL := cfg.WebhookURL
+	if webhookURL == "" {
+		webhookURL = os.Getenv(envDiscordWebhook)
+	}
+	if webhookURL == "" {
+		return nil, fmt.Errorf("discord webhook_url is required when enabled (or set %s)", envDiscordWebhook)
 	}
 	host, _ := os.Hostname()
 	if host == "" {
@@ -64,7 +73,7 @@ func NewDiscordNotifier(cfg *config.DiscordConfig) (*DiscordNotifier, error) {
 		events[e] = struct{}{}
 	}
 	return &DiscordNotifier{
-		webhookURL: cfg.WebhookURL,
+		webhookURL: webhookURL,
 		timeout:    timeout,
 		retry:      cfg.Retry,
 		mentions:   cfg.Mentions,

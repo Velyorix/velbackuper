@@ -34,6 +34,8 @@ s3:
   secret_key: ""
   bucket: "mybucket"
   prefix: "backups"
+  # path_style: true = path-style (MinIO), false = virtual-hosted (AWS, s3.domain.com). Omit = true.
+  # path_style: false
 jobs:
   - name: web
     enabled: true
@@ -54,6 +56,30 @@ S3 layout: archive uses `prefix/archives/<job>/YYYY/MM/DD/`, `prefix/manifests/<
 
 Jobs can use **mysql** (mysqldump), **presets** (nginx/apache/letsencrypt), and **paths** (include/exclude).
 
+### Notifications (Discord)
+
+Notifications are optional. Set `notifications.enabled: false` to disable all. Discord sends embeds for backup start/success/error and prune.
+
+```yaml
+notifications:
+  enabled: true   # omit or true = on; false = off
+  discord:
+    enabled: true
+    webhook_url: "https://discord.com/api/webhooks/..."
+    # Or set VELBACKUPER_DISCORD_WEBHOOK_URL and leave webhook_url empty (keeps secret out of config)
+    timeout_seconds: 15
+    events: [ "start", "success", "warning", "error", "prune", "restore" ]   # omit = all events
+    mentions:
+      on_error: "<@123456789>"   # optional: ping a user/role on failure
+    retry:
+      attempts: 3
+      backoff_ms: 1000
+```
+
+Events: `start`, `success`, `warning`, `error`, `prune`, `restore`. Used by `run`, `prune`, and (when implemented) `restore`.
+
+To configure interactively: `velbackuper config webhooks` (prompts for URL, enable/disable). With flags: `--webhook-url URL`, `--discord-enable`, `--discord-disable`, `--notifications-on`, `--notifications-off`.
+
 ## Commands
 
 | Command | Description |
@@ -66,6 +92,7 @@ Jobs can use **mysql** (mysqldump), **presets** (nginx/apache/letsencrypt), and 
 | `prune [--job name \| --all] [--dry-run]` | Apply retention |
 | `status` | Last run, next run, job state |
 | `doctor` | Diagnose config, S3, locks, disk |
+| `config webhooks` | Configure Discord webhook and notifications (interactive or flags) |
 | `install-systemd` / `uninstall-systemd` | Install or remove systemd units |
 | `enable job <name>` / `disable job <name>` | Enable or disable a job |
 | `add job [--template web\|mysql\|files] [--name name]` | Add a job |

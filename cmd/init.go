@@ -48,46 +48,58 @@ func runInit(cmd *cobra.Command, args []string) error {
 	endpoint := prompt(reader, "S3 endpoint (e.g. https://minio.example.com:9000)", "https://localhost:9000")
 	bucket := prompt(reader, "Bucket name", "velbackuper")
 	prefix := prompt(reader, "Prefix (optional)", "backups")
+	region := prompt(reader, "S3 region (e.g. us-east-1)", "us-east-1")
 	accessKey := prompt(reader, "Access key", "")
 	secretKey := prompt(reader, "Secret key", "")
 	if accessKey == "" || secretKey == "" {
 		return fmt.Errorf("access key and secret key are required")
 	}
 	insecure := confirm(reader, "Skip TLS verify (for self-signed certs)?", false)
+	pathStyle := confirm(reader, "Use path-style addressing? (n = virtual-hosted, for AWS/s3.domain.com) (y/n)", true)
+	disableChecksums := confirm(reader, "Disable request checksums? (y = for Ceph/some S3 backends that return SignatureDoesNotMatch) (y/n)", false)
 
 	s3cfg := &config.S3Config{
-		Endpoint:  endpoint,
-		Region:    "us-east-1",
-		AccessKey: accessKey,
-		SecretKey: secretKey,
-		Bucket:    bucket,
-		Prefix:    config.NormalizePrefix(prefix),
+		Endpoint:                endpoint,
+		Region:                  region,
+		AccessKey:               accessKey,
+		SecretKey:               secretKey,
+		Bucket:                  bucket,
+		Prefix:                  config.NormalizePrefix(prefix),
+		PathStyle:               &pathStyle,
+		DisableRequestChecksums: &disableChecksums,
 	}
 	if insecure {
 		s3cfg.TLS = &config.TLSConfig{InsecureSkipVerify: true}
 	}
 
-	cmd.Println("\nTesting S3 connection...")
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	client, err := s3.New(ctx, s3.Options{
-		Endpoint:           s3cfg.Endpoint,
-		Region:             s3cfg.Region,
-		AccessKey:          s3cfg.AccessKey,
-		SecretKey:          s3cfg.SecretKey,
-		Bucket:             s3cfg.Bucket,
-		Prefix:             s3cfg.Prefix,
-		InsecureSkipVerify: s3cfg.TLS != nil && s3cfg.TLS.InsecureSkipVerify,
-	})
-	if err != nil {
-		return fmt.Errorf("s3 client: %w", err)
+	if confirm(reader, "Test S3 connection now? (n = skip and write config anyway) (y/n)", true) {
+		cmd.Println("\nTesting S3 connection...")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		// Test with empty prefix so the signed key is just the test key (some backends are strict)
+		client, err := s3.New(ctx, s3.Options{
+			Endpoint:                s3cfg.Endpoint,
+			Region:                  s3cfg.Region,
+			AccessKey:               s3cfg.AccessKey,
+			SecretKey:               s3cfg.SecretKey,
+			Bucket:                  s3cfg.Bucket,
+			Prefix:                  "", // no prefix for test
+			PathStyle:               config.S3PathStyle(s3cfg),
+			DisableRequestChecksums: config.S3DisableRequestChecksums(s3cfg),
+			InsecureSkipVerify:      s3cfg.TLS != nil && s3cfg.TLS.InsecureSkipVerify,
+		})
+		if err != nil {
+			return fmt.Errorf("s3 client: %w", err)
+		}
+		testKey := "velbackuper-init-test"
+		if err := client.PutObject(ctx, testKey, bytes.NewReader([]byte("ok")), 2); err != nil {
+			return fmt.Errorf("s3 test upload failed: %w\nTip: run init again and answer 'n' to 'Test S3 connection now?' to write config anyway; then test S3 with: mc alias set myminio <endpoint> <access_key> <secret_key>", err)
+		}
+		_ = client.DeleteObject(ctx, testKey)
+		cmd.Println("S3 connection OK")
+	} else {
+		cmd.Println("\nSkipping S3 test. Run 'velbackuper doctor' or 'velbackuper run' to verify later.")
 	}
-	testKey := "velbackuper-init-test"
-	if err := client.PutObject(ctx, testKey, bytes.NewReader([]byte("ok")), 2); err != nil {
-		return fmt.Errorf("s3 test upload failed: %w", err)
-	}
-	_ = client.DeleteObject(ctx, testKey)
-	cmd.Println("S3 connection OK")
 
 	var jobs []config.JobConfig
 	hasNginx := pathExists("/etc/nginx")

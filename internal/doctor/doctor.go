@@ -44,13 +44,15 @@ func Run(ctx context.Context, cfg *config.Config) []CheckResult {
 
 func checkS3(ctx context.Context, cfg *config.Config) (bool, string) {
 	client, err := s3.New(ctx, s3.Options{
-		Endpoint:           cfg.S3.Endpoint,
-		Region:             cfg.S3.Region,
-		AccessKey:          cfg.S3.AccessKey,
-		SecretKey:          cfg.S3.SecretKey,
-		Bucket:             cfg.S3.Bucket,
-		Prefix:             cfg.S3.Prefix,
-		InsecureSkipVerify: cfg.S3.TLS != nil && cfg.S3.TLS.InsecureSkipVerify,
+		Endpoint:                cfg.S3.Endpoint,
+		Region:                  cfg.S3.Region,
+		AccessKey:               cfg.S3.AccessKey,
+		SecretKey:               cfg.S3.SecretKey,
+		Bucket:                  cfg.S3.Bucket,
+		Prefix:                  cfg.S3.Prefix,
+		PathStyle:               config.S3PathStyle(cfg.S3),
+		DisableRequestChecksums: config.S3DisableRequestChecksums(cfg.S3),
+		InsecureSkipVerify:      cfg.S3.TLS != nil && cfg.S3.TLS.InsecureSkipVerify,
 	})
 	if err != nil {
 		return false, fmt.Sprintf("s3 client init failed: %v", err)

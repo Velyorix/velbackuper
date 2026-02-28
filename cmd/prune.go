@@ -50,18 +50,21 @@ func runPrune(cmd *cobra.Command, args []string) error {
 	}
 
 	s3Client, err := s3.New(ctx, s3.Options{
-		Endpoint:           cfg.S3.Endpoint,
-		Region:             cfg.S3.Region,
-		AccessKey:          cfg.S3.AccessKey,
-		SecretKey:          cfg.S3.SecretKey,
-		Bucket:             cfg.S3.Bucket,
-		Prefix:             cfg.S3.Prefix,
-		InsecureSkipVerify: cfg.S3.TLS != nil && cfg.S3.TLS.InsecureSkipVerify,
+		Endpoint:                cfg.S3.Endpoint,
+		Region:                  cfg.S3.Region,
+		AccessKey:               cfg.S3.AccessKey,
+		SecretKey:               cfg.S3.SecretKey,
+		Bucket:                  cfg.S3.Bucket,
+		Prefix:                  cfg.S3.Prefix,
+		PathStyle:               config.S3PathStyle(cfg.S3),
+		DisableRequestChecksums: config.S3DisableRequestChecksums(cfg.S3),
+		InsecureSkipVerify:      cfg.S3.TLS != nil && cfg.S3.TLS.InsecureSkipVerify,
 	})
 	if err != nil {
 		return err
 	}
 
+	notif := NotifierFromConfig(cfg, func(msg string) { cmd.PrintErrln("Warning:", msg) })
 	now := time.Now().UTC()
 
 	var jobs []config.JobConfig
@@ -100,6 +103,9 @@ func runPrune(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("archive prune for job %s: %w", job.Name, err)
 			}
 			cmd.Printf("Pruned %d archive backups for job %s\n", deleted, job.Name)
+			if notif != nil && deleted > 0 {
+				_ = notif.NotifyPrune(ctx, job.Name, 0, deleted)
+			}
 		case config.ModeIncremental:
 			if pruneDryRun {
 				cmd.Printf("Would prune incremental snapshots/objects for job %s\n", job.Name)
@@ -109,7 +115,11 @@ func runPrune(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return fmt.Errorf("incremental prune for job %s: %w", job.Name, err)
 			}
+			deleted := res.DeletedSnapshots + res.DeletedIndexes + res.DeletedObjects
 			cmd.Printf("Pruned job %s: %d snapshots, %d indexes, %d objects\n", job.Name, res.DeletedSnapshots, res.DeletedIndexes, res.DeletedObjects)
+			if notif != nil && deleted > 0 {
+				_ = notif.NotifyPrune(ctx, job.Name, 0, deleted)
+			}
 		default:
 			return config.ErrInvalidMode
 		}
