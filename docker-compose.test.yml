@@ -1,0 +1,12 @@
+# MinIO for integration tests (run: docker compose -f docker-compose.test.yml up -d)
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    # Bucket is created by tests via s3.CreateBucket

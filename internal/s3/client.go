@@ -9,13 +9,15 @@ import (
 	"net/http"
 	"net/url"
 	"path"
-	"strings"
 	"time"
+
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 const (
@@ -196,4 +198,22 @@ func (c *Client) ListObjects(ctx context.Context, prefix string, maxKeys int32) 
 
 func (c *Client) Client() *s3.Client {
 	return c.client
+}
+
+// CreateBucket creates the bucket if it does not exist. Idempotent for MinIO/S3 (BucketAlreadyOwnedByYou / BucketAlreadyExists).
+func (c *Client) CreateBucket(ctx context.Context) error {
+	_, err := c.client.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(c.bucket),
+	})
+	if err != nil {
+		var own *types.BucketAlreadyOwnedByYou
+		if errors.As(err, &own) {
+			return nil
+		}
+		if strings.Contains(err.Error(), "BucketAlreadyExists") || strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
