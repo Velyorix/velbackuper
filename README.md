@@ -54,7 +54,7 @@ jobs:
 
 S3 layout: archive uses `prefix/archives/<job>/YYYY/MM/DD/`, `prefix/manifests/<job>/`, `prefix/latest/<job>.json`. Incremental uses `prefix/objects/`, `prefix/snapshots/<job>/`, `prefix/indexes/<job>/`, `prefix/locks/`.
 
-Jobs can use **mysql** (mysqldump), **presets** (nginx/apache/letsencrypt), and **paths** (include/exclude).
+Jobs can use **mysql** (mysqldump), **presets** (nginx/apache/letsencrypt and `/var/www` when nginx or apache is enabled), and **paths** (include/exclude).
 
 ### Notifications (Discord)
 

@@ -12,6 +12,7 @@ var (
 	PresetPathApache      = "/etc/apache2"
 	PresetPathApacheAlt   = "/etc/httpd"
 	PresetPathLetsEncrypt = "/etc/letsencrypt"
+	PresetPathWebRoot     = "/var/www"
 )
 
 type PresetsOpts struct {
@@ -58,6 +59,12 @@ func (c *PresetsCollector) includedPaths() []string {
 	if c.opts.LetsEncrypt {
 		if p := PresetPathLetsEncrypt; pathExists(p) {
 			out = append(out, p)
+		}
+	}
+	// Web root when nginx or apache is used
+	if c.opts.Nginx || c.opts.Apache {
+		if pathExists(PresetPathWebRoot) {
+			out = append(out, PresetPathWebRoot)
 		}
 	}
 	return out
