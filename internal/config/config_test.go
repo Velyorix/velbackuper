@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -63,5 +65,84 @@ func TestUnmarshal_S3AndJobs(t *testing.T) {
 	}
 	if !cfg.Jobs[0].Enabled {
 		t.Error("jobs[0].enabled should be true")
+	}
+}
+
+func TestWrite_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	cfg := &Config{
+		Mode: ModeArchive,
+		S3: &S3Config{
+			Endpoint:  "https://127.0.0.1:9000",
+			Bucket:    "test",
+			Prefix:    "backups",
+			AccessKey: "key",
+			SecretKey: "secret",
+		},
+		Jobs: []JobConfig{
+			{
+				Name:      "web",
+				Enabled:   true,
+				Presets:   &PresetsConfig{Nginx: true, LetsEncrypt: true},
+				Schedule:  &ScheduleConfig{Period: "day", Times: 2, JitterMinutes: 15},
+				Retention: &RetentionConfig{Days: 7},
+			},
+		},
+	}
+	if err := Write(cfg, path); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("config file is empty")
+	}
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("yaml")
+	if err := v.ReadInConfig(); err != nil {
+		t.Fatalf("ReadInConfig: %v", err)
+	}
+	loaded, err := Unmarshal(v)
+	if err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if loaded.Mode != cfg.Mode {
+		t.Errorf("mode = %q, want %q", loaded.Mode, cfg.Mode)
+	}
+	if loaded.S3 == nil || loaded.S3.Bucket != cfg.S3.Bucket {
+		t.Errorf("s3.bucket = %v", loaded.S3)
+	}
+	if len(loaded.Jobs) != 1 || loaded.Jobs[0].Name != "web" {
+		t.Errorf("jobs = %v", loaded.Jobs)
+	}
+}
+
+func TestJobTemplate(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		jobName  string
+		wantNil  bool
+	}{
+		{"web", "web", "myweb", false},
+		{"mysql", "mysql", "db", false},
+		{"files", "files", "data", false},
+		{"unknown", "invalid", "x", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := JobTemplate(tt.template, tt.jobName)
+			if (job == nil) != tt.wantNil {
+				t.Errorf("JobTemplate(%q, %q) = %v, wantNil=%v", tt.template, tt.jobName, job, tt.wantNil)
+			}
+			if job != nil && job.Name != tt.jobName {
+				t.Errorf("job.Name = %q, want %q", job.Name, tt.jobName)
+			}
+		})
 	}
 }
